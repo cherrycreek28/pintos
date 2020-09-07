@@ -15,6 +15,9 @@
 #include "userprog/process.h"
 #endif
 
+//#include <syscall.h>
+#include "devices/timer.h"
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -556,6 +559,26 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  struct list_elem* e = list_begin(&sleep_list);
+  struct list_elem* tmp; 
+  int64_t current_ticks = timer_ticks(); 
+
+  while (e != list_end(&sleep_list))
+  {
+    //printf("hello");
+    struct thread* cur = list_entry(e, struct thread, elem); 
+    if (current_ticks >= cur->wakeup_time)
+    {
+      cur->status = THREAD_READY; 
+      tmp = e; 
+      e = list_next(e); 
+      list_remove(tmp);
+      list_push_back(&ready_list, tmp);
+    }
+    else
+      e = list_next(e); 
+  }
+
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
@@ -609,7 +632,7 @@ void thread_sleep(int64_t ticks)
   {
     list_push_back (&sleep_list, &cur->elem);
     int64_t current_ticks = timer_ticks(); 
-    current_thread->wakeup_time = current_ticks + ticks; 
+    cur->wakeup_time = current_ticks + ticks; 
     cur->status = THREAD_SLEEPING;
     schedule ();
   }
